@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AuthWidget extends StatefulWidget {
   const AuthWidget({Key? key}) : super(key: key);
@@ -56,7 +57,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
 
     try {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
-      _navigateToHome();
+      // No manual navigation here, StreamBuilder in main.dart will show HomePageWidget.
     } catch (e) {
       _showErrorSnackBar(e.toString());
     }
@@ -79,7 +80,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
 
     try {
       await _auth.createUserWithEmailAndPassword(email: email, password: password);
-      _navigateToHome();
+      // No manual navigation here, StreamBuilder in main.dart will show HomePageWidget.
     } catch (e) {
       _showErrorSnackBar(e.toString());
     }
@@ -96,18 +97,10 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
         idToken: googleAuth.idToken,
       );
       await _auth.signInWithCredential(credential);
-      _navigateToHome();
+      // No manual navigation here, StreamBuilder in main.dart will show HomePageWidget.
     } catch (e) {
       _showErrorSnackBar(e.toString());
     }
-  }
-
-  void _navigateToHome() {
-    // Replace HomePageWidget() with your own home screen widget
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => HomePageWidget()),
-    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -169,7 +162,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'Food Pharmer',
-                        style: theme.textTheme.headline6?.copyWith(
+                        style: theme.textTheme.titleLarge?.copyWith(
                           color: Colors.black,
                           fontWeight: FontWeight.w500,
                         ),
@@ -210,7 +203,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                       const SizedBox(height: 12),
                                       Text(
                                         "Let's get started by filling out the form below.",
-                                        style: theme.textTheme.bodyText2?.copyWith(
+                                        style: theme.textTheme.bodyMedium?.copyWith(
                                           color: Colors.grey[700],
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -224,8 +217,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                         'Password',
                                         _signInPasswordVisible,
                                             () => setState(() {
-                                          _signInPasswordVisible =
-                                          !_signInPasswordVisible;
+                                          _signInPasswordVisible = !_signInPasswordVisible;
                                         }),
                                       ),
                                       const SizedBox(height: 16),
@@ -234,8 +226,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                           onPressed: _signInWithEmail,
                                           style: ElevatedButton.styleFrom(
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(40),
+                                              borderRadius: BorderRadius.circular(40),
                                             ),
                                             minimumSize: const Size(230, 52),
                                           ),
@@ -255,7 +246,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                       Center(
                                         child: Text(
                                           'Or sign in with',
-                                          style: theme.textTheme.bodyText2?.copyWith(
+                                          style: theme.textTheme.bodyMedium?.copyWith(
                                             color: Colors.grey[700],
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -265,16 +256,13 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                       Center(
                                         child: ElevatedButton.icon(
                                           onPressed: _signInWithGoogle,
-                                          icon: const FaIcon(FontAwesomeIcons.google),
+                                          icon: const Icon(FontAwesomeIcons.google),
                                           label: const Text('Continue with Google'),
                                           style: ElevatedButton.styleFrom(
-                                            primary: Colors.white,
-                                            onPrimary: Colors.black,
-                                            side: const BorderSide(
-                                                color: Color(0xFFE0E3E7), width: 2),
+                                            foregroundColor: Colors.black, backgroundColor: Colors.white,
+                                            side: const BorderSide(color: Color(0xFFE0E3E7), width: 2),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(40),
+                                              borderRadius: BorderRadius.circular(40),
                                             ),
                                             minimumSize: const Size(230, 44),
                                           ),
@@ -293,7 +281,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                       const SizedBox(height: 12),
                                       Text(
                                         "Let's get started by filling out the form below.",
-                                        style: theme.textTheme.bodyText2?.copyWith(
+                                        style: theme.textTheme.bodyMedium?.copyWith(
                                           color: Colors.grey[700],
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -307,8 +295,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                         'Password',
                                         _signUpPasswordVisible,
                                             () => setState(() {
-                                          _signUpPasswordVisible =
-                                          !_signUpPasswordVisible;
+                                          _signUpPasswordVisible = !_signUpPasswordVisible;
                                         }),
                                       ),
                                       const SizedBox(height: 16),
@@ -317,8 +304,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                         'Confirm Password',
                                         _signUpConfirmPasswordVisible,
                                             () => setState(() {
-                                          _signUpConfirmPasswordVisible =
-                                          !_signUpConfirmPasswordVisible;
+                                          _signUpConfirmPasswordVisible = !_signUpConfirmPasswordVisible;
                                         }),
                                       ),
                                       const SizedBox(height: 16),
@@ -327,8 +313,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                           onPressed: _signUpWithEmail,
                                           style: ElevatedButton.styleFrom(
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(40),
+                                              borderRadius: BorderRadius.circular(40),
                                             ),
                                             minimumSize: const Size(230, 52),
                                           ),
@@ -339,7 +324,7 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                       Center(
                                         child: Text(
                                           'Or sign up with',
-                                          style: theme.textTheme.bodyText2?.copyWith(
+                                          style: theme.textTheme.bodyMedium?.copyWith(
                                             color: Colors.grey[700],
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -350,16 +335,12 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                         child: ElevatedButton.icon(
                                           onPressed: _signInWithGoogle,
                                           icon: const FaIcon(FontAwesomeIcons.google),
-                                          label:
-                                          const Text('Continue with Google'),
+                                          label: const Text('Continue with Google'),
                                           style: ElevatedButton.styleFrom(
-                                            primary: Colors.white,
-                                            onPrimary: Colors.black,
-                                            side: const BorderSide(
-                                                color: Color(0xFFE0E3E7), width: 2),
+                                            foregroundColor: Colors.black, backgroundColor: Colors.white,
+                                            side: const BorderSide(color: Color(0xFFE0E3E7), width: 2),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(40),
+                                              borderRadius: BorderRadius.circular(40),
                                             ),
                                             minimumSize: const Size(230, 44),
                                           ),
@@ -378,23 +359,10 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            // If you don't need a side image for larger screens, remove this.
-            // Otherwise, add a second Expanded widget with a background image here if desired.
+            // If you don't need a side image for larger screens, you can remove this expanded section.
           ],
         ),
       ),
-    );
-  }
-}
-
-// Placeholder for your home page, replace with your actual home widget.
-class HomePageWidget extends StatelessWidget {
-  const HomePageWidget({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(child: Text('Home Page')),
     );
   }
 }

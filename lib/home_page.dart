@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomePageWidget extends StatefulWidget {
   const HomePageWidget({Key? key}) : super(key: key);
@@ -15,7 +16,7 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
     super.initState();
     _tabBarController = TabController(
       vsync: this,
-      length: 3, // We have three tabs: Capture, Dashboard, Profile
+      length: 3, // Capture, Dashboard, Profile
       initialIndex: 0,
     );
   }
@@ -24,6 +25,10 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
   void dispose() {
     _tabBarController.dispose();
     super.dispose();
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
   }
 
   @override
@@ -37,7 +42,6 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       body: SafeArea(
         child: Column(
           children: [
-            // The Expanded widget holds the TabBarView at the top
             Expanded(
               child: TabBarView(
                 controller: _tabBarController,
@@ -77,16 +81,13 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ElevatedButton(
-                        onPressed: () {
-                          // Handle logout
-                          print("Log Out pressed");
-                        },
+                        onPressed: _signOut,
                         child: const Text("Log Out"),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () {
-                          // Handle account deletion
+                          // Implement delete account if needed
                           print("Delete Account pressed");
                         },
                         child: const Text("Delete Account"),

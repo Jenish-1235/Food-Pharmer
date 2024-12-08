@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "627094072428",
+    "project_id": "food-pharmer",
+    "storage_bucket": "food-pharmer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:627094072428:android:28023ef5e247ee1c5a7c49",
+        "android_client_info": {
+          "package_name": "com.jenu.foodpharmer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "627094072428-v0oepoqhru83q48eteh3ul6imvq0ogaa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbWMSae8bssvsb88HK1Ji1QgigiOVWtQQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "627094072428-v0oepoqhru83q48eteh3ul6imvq0ogaa.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
