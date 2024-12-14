@@ -116,7 +116,7 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
       // Process extracted text to get ingredients
       List<Ingredient> ingredients = _parseIngredients(extractedText);
-      debugPrint("Parsed Ingredients: ${ingredients.map((e) => e.name).toList()}");
+      debugPrint("Parsed Ingredients: ${ingredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
 
       // Fetch harmful ingredients from Firestore
       List<Map<String, dynamic>> harmfulIngredients = await _firestoreService.getHarmfulIngredients();
@@ -124,7 +124,7 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
       // Compare and determine harmful ingredients
       List<Ingredient> flaggedIngredients = _compareIngredients(ingredients, harmfulIngredients);
-      debugPrint("Flagged Ingredients: ${flaggedIngredients.map((e) => e.name).toList()}");
+      debugPrint("Flagged Ingredients: ${flaggedIngredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
 
       // Determine safety label
       String safetyLabel = flaggedIngredients.isEmpty ? 'Safe' : 'Unsafe';
@@ -132,12 +132,18 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       // Save the results to Firestore
       await _firestoreService.saveAnalysisResult({
         'analysisDate': FieldValue.serverTimestamp(),
-        'harmfulIngredients': flaggedIngredients.map((e) => {'name': e.name, 'quantity': e.quantity}).toList(),
+        'harmfulIngredients': flaggedIngredients.map((e) => {
+          'name': e.name,
+          'quantityPresentAsPerImageInferred': e.quantity, // Removed "mg"
+        }).toList(),
         'imageUrl': downloadUrl,
-        'ingredients': ingredients.map((e) => {'name': e.name, 'quantity': e.quantity}).toList(),
+        'ingredients': ingredients.map((e) => {
+          'name': e.name,
+          'quantityPresentAsPerImageInferred': e.quantity, // Removed "mg"
+        }).toList(),
         'productName': _generateProductName(ingredients),
         'safetyLabel': safetyLabel,
-        'userId': FirebaseAuth.instance.currentUser?.uid, // Optional: Remove if not needed
+        'userId': FirebaseAuth.instance.currentUser?.uid ?? 'unknownUser',
       });
 
       setState(() {
@@ -161,7 +167,8 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
   }
 
   List<Ingredient> _parseIngredients(String text) {
-    final regex = RegExp(r'^(.+?)(\d.*)?$');
+    // Regular expression to capture ingredient name and quantity
+    final regex = RegExp(r'^(.+?)\s+(\d+\.?\d*)$', caseSensitive: false);
 
     final parsed = text
         .split(RegExp(r',|\n'))
@@ -171,16 +178,21 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       final match = regex.firstMatch(ingredient);
       if (match != null) {
         final name = _normalizeName(match.group(1) ?? 'unknown');
-        final quantity = match.group(2)?.trim() ?? '';
+        final quantityStr = match.group(2) ?? '0';
+
+        // Parse quantity as a double
+        double quantity = double.tryParse(quantityStr) ?? 0.0;
+
         return Ingredient(name: name, quantity: quantity);
       } else {
-        return Ingredient(name: 'unknown', quantity: '');
+        debugPrint("Failed to parse ingredient: $ingredient");
+        return Ingredient(name: 'unknown', quantity: 0.0);
       }
     })
-        .where((ingredient) => ingredient.name.isNotEmpty && ingredient.name != 'unknown')
+        .where((ingredient) => ingredient.name.isNotEmpty && ingredient.name != 'unknown' && ingredient.quantity > 0)
         .toList();
 
-    debugPrint("Parsed Ingredients: ${parsed.map((e) => e.name).toList()}");
+    debugPrint("Parsed Ingredients: ${parsed.map((e) => "${e.name}: ${e.quantity}").toList()}");
     return parsed;
   }
 
@@ -188,19 +200,29 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       List<Ingredient> ingredients, List<Map<String, dynamic>> harmfulIngredients) {
     List<Ingredient> flagged = [];
 
-    // Create a Set of harmful ingredient names in lowercase and normalized
-    Set<String> harmfulNames = harmfulIngredients
-        .map((harmful) => _normalizeName(harmful['name'].toString()))
-        .toSet();
+    // Create a Map of harmful ingredient names to their threshold
+    Map<String, double> harmfulMap = {};
+    for (var harmful in harmfulIngredients) {
+      String? harmfulName = harmful['"name"']; // Access without quotes
+      double? threshold = double.tryParse(harmful['threshold'].toString());
+      if (harmfulName != null && threshold != null) {
+        harmfulMap[_normalizeName(harmfulName)] = threshold;
+        debugPrint("Harmful Ingredient Added to Map: ${_normalizeName(harmfulName)} with threshold $threshold");
+      } else {
+        debugPrint("Invalid harmful ingredient data: $harmful");
+      }
+    }
 
-    debugPrint("Harmful Ingredient Names: $harmfulNames");
+    debugPrint("Harmful Ingredients Map: $harmfulMap");
 
     for (var ingredient in ingredients) {
-      for (var harmfulName in harmfulNames) {
-        if (ingredient.name.contains(harmfulName)) {
+      if (harmfulMap.containsKey(ingredient.name)) {
+        double threshold = harmfulMap[ingredient.name]!;
+        if (ingredient.quantity > threshold) {
           flagged.add(ingredient);
-          debugPrint("Flagged Ingredient: ${ingredient.name}");
-          break; // Avoid duplicate entries
+          debugPrint("Flagged Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} exceeding threshold $threshold");
+        } else {
+          debugPrint("Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} is below threshold $threshold");
         }
       }
     }
@@ -211,7 +233,8 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
   String _generateProductName(List<Ingredient> ingredients) {
     if (ingredients.isEmpty) return "Unnamed Product";
-    return ingredients.first.name.capitalize(); // Capitalize first letter
+    // Example: Capitalize first ingredient's name
+    return ingredients.first.name.capitalize();
   }
 
   Future<void> _signOut() async {
@@ -310,7 +333,7 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
                   ),
 
                   // Tab 2: Dashboard
-                  DashboardTab(), // Updated below
+                  DashboardTab(),
 
                   // Tab 3: Profile
                   ProfileTab(),
@@ -456,6 +479,95 @@ class ProductListItem extends StatelessWidget {
           safetyLabel == 'Safe' ? Icons.check_circle : Icons.error,
           color: labelColor,
         ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(productData: {
+                'productName': productName,
+                'safetyLabel': safetyLabel,
+                'imageUrl': imageUrl,
+                'ingredients': ingredients.map((e) => {'name': e, 'quantityPresentAsPerImageInferred': 'Unknown'}).toList(),
+                'harmfulIngredients': harmfulIngredients.map((e) => {'name': e, 'quantityPresentAsPerImageInferred': 'Unknown'}).toList(),
+              }),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class ProductDetailPage extends StatelessWidget {
+  final Map<String, dynamic> productData;
+
+  const ProductDetailPage({Key? key, required this.productData}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(productData['productName'] ?? 'Product Details'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView( // To handle overflow if content is large
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: productData['imageUrl'] != null && productData['imageUrl'].isNotEmpty
+                    ? Image.network(
+                  productData['imageUrl'],
+                  height: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.broken_image, size: 100, color: Colors.grey),
+                )
+                    : const Icon(Icons.image, size: 100, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Product Name: ${productData['productName'] ?? 'Unnamed Product'}",
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Safety Label: ${productData['safetyLabel'] ?? 'Unknown'}",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: productData['safetyLabel'] == 'Safe' ? Colors.green : Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Ingredients:",
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              ...List<Widget>.from(
+                List<Map<String, dynamic>>.from(productData['ingredients'] ?? []).map(
+                      (ingredient) => Text("- ${ingredient['name']} (${ingredient['quantityPresentAsPerImageInferred']})"),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if ((productData['harmfulIngredients'] ?? []).isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Harmful Ingredients:",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    ...List<Widget>.from(
+                      List<Map<String, dynamic>>.from(productData['harmfulIngredients'] ?? []).map(
+                            (harmful) => Text("- ${harmful['name']} (${harmful['quantityPresentAsPerImageInferred']})"),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -463,6 +575,14 @@ class ProductListItem extends StatelessWidget {
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({Key? key}) : super(key: key);
+
+  Future<String?> _getUserRole(String uid) async {
+    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (userDoc.exists) {
+      return userDoc['role'] as String?;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -472,34 +592,51 @@ class ProfileTab extends StatelessWidget {
       return const Center(child: Text("User not logged in."));
     }
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            user.displayName ?? 'No Name',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    return FutureBuilder<String?>(
+      future: _getUserRole(user.uid),
+      builder: (context, snapshot) {
+        String? role = snapshot.data;
+        bool isAdmin = role == 'admin';
+
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                user.displayName ?? 'No Name',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(user.email ?? 'No Email'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                },
+                child: const Text("Log Out"),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  // Implement delete account functionality
+                  debugPrint("Delete Account pressed.");
+                },
+                child: const Text("Delete Account"),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              if (isAdmin)
+                ElevatedButton(
+                  onPressed: () {
+                    // Navigate to Harmful Ingredients Management Screen
+                    debugPrint("Navigate to Harmful Ingredients Management Screen");
+                  },
+                  child: const Text("Manage Harmful Ingredients"),
+                ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(user.email ?? 'No Email'),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
-            child: const Text("Log Out"),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Implement delete account functionality
-              debugPrint("Delete Account pressed.");
-            },
-            child: const Text("Delete Account"),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
