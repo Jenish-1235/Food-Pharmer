@@ -1,14 +1,14 @@
-// home_page.dart
+// lib/home_page.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:foodpharmer/services/storage_service.dart';
 import 'package:foodpharmer/services/vision_service.dart';
 import 'package:foodpharmer/services/firestore_service.dart';
+import 'package:foodpharmer/services/twitter_service.dart'; // Import TwitterService
 import 'package:foodpharmer/models/ingredient.dart'; // Import the Ingredient model
 
 class HomePageWidget extends StatefulWidget {
@@ -18,15 +18,20 @@ class HomePageWidget extends StatefulWidget {
   State<HomePageWidget> createState() => _HomePageWidgetState();
 }
 
-class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStateMixin {
+class _HomePageWidgetState extends State<HomePageWidget>
+    with TickerProviderStateMixin {
   late TabController _tabBarController;
   File? _selectedImage;
   bool _isUploading = false;
   bool _isAnalyzing = false;
 
   final StorageService _storageService = StorageService();
-  final VisionService _visionService = VisionService(apiKey: 'AIzaSyDvuVjFUosK4nOV-7Kk9Bbnb1ainx3Q2O0'); // Replace with your API key
+  final VisionService _visionService =
+  VisionService(apiKey: 'AIzaSyDvuVjFUosK4nOV-7Kk9Bbnb1ainx3Q2O0'); // Replace with your API key
   final FirestoreService _firestoreService = FirestoreService();
+
+  // Initialize TwitterService with your credentials
+  final TwitterService twitterService = TwitterService();
 
   @override
   void initState() {
@@ -36,6 +41,16 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       length: 3, // Capture, Dashboard, Profile
       initialIndex: 0,
     );
+
+    // Automatically sign in the user on app start
+    _signInUser();
+  }
+
+  Future<void> _signInUser() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Optionally, navigate to AuthWidget or handle unauthenticated state
+    }
   }
 
   @override
@@ -52,7 +67,8 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
   Future<void> _pickImageFromGallery() async {
     try {
-      final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+      final pickedFile =
+      await ImagePicker().pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
@@ -71,7 +87,8 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
   Future<void> _captureImageFromCamera() async {
     try {
-      final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
+      final pickedFile =
+      await ImagePicker().pickImage(source: ImageSource.camera);
       if (pickedFile != null) {
         setState(() {
           _selectedImage = File(pickedFile.path);
@@ -116,31 +133,64 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
       // Process extracted text to get ingredients
       List<Ingredient> ingredients = _parseIngredients(extractedText);
-      debugPrint("Parsed Ingredients: ${ingredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
+      debugPrint(
+          "Parsed Ingredients: ${ingredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
 
       // Fetch harmful ingredients from Firestore
-      List<Map<String, dynamic>> harmfulIngredients = await _firestoreService.getHarmfulIngredients();
+      List<Map<String, dynamic>> harmfulIngredients =
+      await _firestoreService.getHarmfulIngredients();
       debugPrint("Fetched Harmful Ingredients: $harmfulIngredients");
 
       // Compare and determine harmful ingredients
-      List<Ingredient> flaggedIngredients = _compareIngredients(ingredients, harmfulIngredients);
-      debugPrint("Flagged Ingredients: ${flaggedIngredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
+      List<Ingredient> flaggedIngredients =
+      _compareIngredients(ingredients, harmfulIngredients);
+      debugPrint(
+          "Flagged Ingredients: ${flaggedIngredients.map((e) => "${e.name}: ${e.quantity}").toList()}");
 
       // Determine safety label
       String safetyLabel = flaggedIngredients.isEmpty ? 'Safe' : 'Unsafe';
 
+      // If harmful ingredients detected, post a tweet
+      if (flaggedIngredients.isNotEmpty) {
+        String productName = _generateProductName(ingredients);
+        String tweetMessage =
+            '🚨 Warning! Detected harmful ingredients in $productName:\n';
+        for (var ingredient in flaggedIngredients) {
+          tweetMessage += '- ${ingredient.name}: ${ingredient.quantity}%\n';
+        }
+        tweetMessage += '\n#FoodSafety #Health #Nutrition';
+
+        // Post the tweet
+        await twitterService.postTweet(tweetMessage);
+
+        // Notify the user
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unsafe product detected! Tweet posted.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+              Text('Product is safe! No harmful ingredients detected.')),
+        );
+      }
+
       // Save the results to Firestore
       await _firestoreService.saveAnalysisResult({
         'analysisDate': FieldValue.serverTimestamp(),
-        'harmfulIngredients': flaggedIngredients.map((e) => {
+        'harmfulIngredients': flaggedIngredients
+            .map((e) => {
           'name': e.name,
-          'quantityPresentAsPerImageInferred': e.quantity, // Removed "mg"
-        }).toList(),
+          'quantityPresentAsPerImageInferred': e.quantity,
+        })
+            .toList(),
         'imageUrl': downloadUrl,
-        'ingredients': ingredients.map((e) => {
+        'ingredients': ingredients
+            .map((e) => {
           'name': e.name,
-          'quantityPresentAsPerImageInferred': e.quantity, // Removed "mg"
-        }).toList(),
+          'quantityPresentAsPerImageInferred': e.quantity,
+        })
+            .toList(),
         'productName': _generateProductName(ingredients),
         'safetyLabel': safetyLabel,
         'userId': FirebaseAuth.instance.currentUser?.uid ?? 'unknownUser',
@@ -152,7 +202,7 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Image analyzed and saved successfully!")),
+        const SnackBar(content: Text("Image analyzed and saved successfully!")),
       );
     } catch (e) {
       debugPrint("Error uploading and analyzing image: $e");
@@ -189,10 +239,14 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
         return Ingredient(name: 'unknown', quantity: 0.0);
       }
     })
-        .where((ingredient) => ingredient.name.isNotEmpty && ingredient.name != 'unknown' && ingredient.quantity > 0)
+        .where((ingredient) =>
+    ingredient.name.isNotEmpty &&
+        ingredient.name != 'unknown' &&
+        ingredient.quantity > 0)
         .toList();
 
-    debugPrint("Parsed Ingredients: ${parsed.map((e) => "${e.name}: ${e.quantity}").toList()}");
+    debugPrint(
+        "Parsed Ingredients: ${parsed.map((e) => "${e.name}: ${e.quantity}").toList()}");
     return parsed;
   }
 
@@ -207,7 +261,8 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
       double? threshold = double.tryParse(harmful['threshold'].toString());
       if (harmfulName != null && threshold != null) {
         harmfulMap[_normalizeName(harmfulName)] = threshold;
-        debugPrint("Harmful Ingredient Added to Map: ${_normalizeName(harmfulName)} with threshold $threshold");
+        debugPrint(
+            "Harmful Ingredient Added to Map: ${_normalizeName(harmfulName)} with threshold $threshold");
       } else {
         debugPrint("Invalid harmful ingredient data: $harmful");
       }
@@ -220,9 +275,11 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
         double threshold = harmfulMap[ingredient.name]!;
         if (ingredient.quantity > threshold) {
           flagged.add(ingredient);
-          debugPrint("Flagged Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} exceeding threshold $threshold");
+          debugPrint(
+              "Flagged Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} exceeding threshold $threshold");
         } else {
-          debugPrint("Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} is below threshold $threshold");
+          debugPrint(
+              "Ingredient: ${ingredient.name} with quantity ${ingredient.quantity} is below threshold $threshold");
         }
       }
     }
@@ -239,6 +296,40 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
 
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
+    await twitterService.disconnect();
+    // Optionally, clear other secure storages
+  }
+
+  Future<void> _signInWithTwitter() async {
+    try {
+      final userCredential = await FirebaseAuth.instance.signInWithProvider(
+        TwitterAuthProvider(),
+      );
+
+      if (userCredential.credential != null) {
+        final credential = userCredential.credential as OAuthCredential;
+        final accessToken = credential.accessToken;
+        final accessSecret = credential.secret;
+
+        if (accessToken != null && accessSecret != null) {
+          await twitterService.storeAccessTokens(accessToken, accessSecret);
+          await twitterService.initialize();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Twitter Account Connected!')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to obtain Twitter tokens.')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Error during Twitter sign-in: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Twitter Sign-In Error: $e")),
+      );
+    }
   }
 
   @override
@@ -257,86 +348,105 @@ class _HomePageWidgetState extends State<HomePageWidget> with TickerProviderStat
                 controller: _tabBarController,
                 children: [
                   // Tab 1: Capture
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _selectedImage == null
-                          ? Column(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _captureImageFromCamera,
-                            icon: const Icon(Icons.camera),
-                            label: const Text("Capture Image"),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _pickImageFromGallery,
-                            icon: const Icon(Icons.image),
-                            label: const Text("Pick from Gallery"),
-                          ),
-                        ],
-                      )
-                          : Column(
-                        children: [
-                          Image.file(
-                            _selectedImage!,
-                            height: 200,
-                            width: 200,
-                            fit: BoxFit.cover,
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ElevatedButton(
-                                onPressed: _isUploading || _isAnalyzing
-                                    ? null
-                                    : _uploadAndAnalyzeImage,
-                                child: _isUploading
-                                    ? const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                )
-                                    : _isAnalyzing
-                                    ? const Text("Analyzing...")
-                                    : const Text("Analyze Image"),
+                  SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _selectedImage == null
+                            ? Column(
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _captureImageFromCamera,
+                              icon: const Icon(Icons.camera),
+                              label: const Text("Capture Image"),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _pickImageFromGallery,
+                              icon: const Icon(Icons.image),
+                              label: const Text("Pick from Gallery"),
+                            ),
+                            const SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: _signInWithTwitter,
+                              child: const Text('Connect Twitter Account'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
                               ),
-                              const SizedBox(width: 16),
-                              ElevatedButton(
-                                onPressed: _isUploading || _isAnalyzing
-                                    ? null
-                                    : () {
-                                  setState(() {
-                                    _selectedImage = null;
-                                  });
-                                  debugPrint("Image discarded.");
-                                },
-                                child: const Text("Discard Image"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
+                            ),
+                          ],
+                        )
+                            : Column(
+                          children: [
+                            Image.file(
+                              _selectedImage!,
+                              height: 200,
+                              width: 200,
+                              fit: BoxFit.cover,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: _isUploading || _isAnalyzing
+                                      ? null
+                                      : _uploadAndAnalyzeImage,
+                                  child: _isUploading
+                                      ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor:
+                                      AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
+                                    ),
+                                  )
+                                      : _isAnalyzing
+                                      ? const Text("Analyzing...")
+                                      : const Text("Analyze Image"),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _isUploading || _isAnalyzing
-                                ? null
-                                : () async {
-                              await _pickImageFromGallery();
-                            },
-                            icon: const Icon(Icons.image_search),
-                            label: const Text("Pick Another Image"),
-                          ),
-                        ],
-                      ),
-                    ],
+                                const SizedBox(width: 16),
+                                ElevatedButton(
+                                  onPressed: _isUploading || _isAnalyzing
+                                      ? null
+                                      : () {
+                                    setState(() {
+                                      _selectedImage = null;
+                                    });
+                                    debugPrint("Image discarded.");
+                                  },
+                                  child: const Text("Discard Image"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _isUploading || _isAnalyzing
+                                  ? null
+                                  : () async {
+                                await _pickImageFromGallery();
+                              },
+                              icon: const Icon(Icons.image_search),
+                              label: const Text("Pick Another Image"),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
                   // Tab 2: Dashboard
                   DashboardTab(),
 
                   // Tab 3: Profile
-                  ProfileTab(),
+                  ProfileTab(twitterService: twitterService),
                 ],
               ),
             ),
@@ -400,7 +510,8 @@ class DashboardTab extends StatelessWidget {
               ingredients: List<Map<String, dynamic>>.from(data['ingredients'] ?? [])
                   .map((e) => e['name'] as String)
                   .toList(),
-              harmfulIngredients: List<Map<String, dynamic>>.from(data['harmfulIngredients'] ?? [])
+              harmfulIngredients:
+              List<Map<String, dynamic>>.from(data['harmfulIngredients'] ?? [])
                   .map((e) => e['name'] as String)
                   .toList(),
             );
@@ -460,7 +571,9 @@ class ProductListItem extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Safety: $safetyLabel", style: TextStyle(color: labelColor, fontWeight: FontWeight.w600)),
+            Text("Safety: $safetyLabel",
+                style:
+                TextStyle(color: labelColor, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
             Text("Ingredients: ${ingredients.join(', ')}"),
             if (harmfulIngredients.isNotEmpty)
@@ -468,7 +581,8 @@ class ProductListItem extends StatelessWidget {
                 spacing: 6.0,
                 children: harmfulIngredients
                     .map((e) => Chip(
-                  label: Text(e, style: const TextStyle(color: Colors.white)),
+                  label: Text(e,
+                      style: const TextStyle(color: Colors.white)),
                   backgroundColor: Colors.red,
                 ))
                     .toList(),
@@ -487,8 +601,18 @@ class ProductListItem extends StatelessWidget {
                 'productName': productName,
                 'safetyLabel': safetyLabel,
                 'imageUrl': imageUrl,
-                'ingredients': ingredients.map((e) => {'name': e, 'quantityPresentAsPerImageInferred': 'Unknown'}).toList(),
-                'harmfulIngredients': harmfulIngredients.map((e) => {'name': e, 'quantityPresentAsPerImageInferred': 'Unknown'}).toList(),
+                'ingredients': ingredients
+                    .map((e) => {
+                  'name': e,
+                  'quantityPresentAsPerImageInferred': 'Unknown'
+                })
+                    .toList(),
+                'harmfulIngredients': harmfulIngredients
+                    .map((e) => {
+                  'name': e,
+                  'quantityPresentAsPerImageInferred': 'Unknown'
+                })
+                    .toList(),
               }),
             ),
           );
@@ -501,54 +625,76 @@ class ProductListItem extends StatelessWidget {
 class ProductDetailPage extends StatelessWidget {
   final Map<String, dynamic> productData;
 
-  const ProductDetailPage({Key? key, required this.productData}) : super(key: key);
+  const ProductDetailPage({Key? key, required this.productData})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // Convert quantities to meaningful strings
+    List<Widget> ingredientsWidgets = [];
+    List<Widget> harmfulIngredientsWidgets = [];
+
+    for (var ingredient in productData['ingredients'] ?? []) {
+      ingredientsWidgets.add(
+        Text(
+            "- ${ingredient['name']} (${ingredient['quantityPresentAsPerImageInferred']}%)"),
+      );
+    }
+
+    for (var harmful in productData['harmfulIngredients'] ?? []) {
+      harmfulIngredientsWidgets.add(
+        Text(
+            "- ${harmful['name']} (${harmful['quantityPresentAsPerImageInferred']}%)"),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(productData['productName'] ?? 'Product Details'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView( // To handle overflow if content is large
+        child: SingleChildScrollView(
+          // To handle overflow if content is large
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: productData['imageUrl'] != null && productData['imageUrl'].isNotEmpty
+                child: productData['imageUrl'] != null &&
+                    productData['imageUrl'].isNotEmpty
                     ? Image.network(
                   productData['imageUrl'],
                   height: 200,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.broken_image, size: 100, color: Colors.grey),
+                  const Icon(Icons.broken_image,
+                      size: 100, color: Colors.grey),
                 )
                     : const Icon(Icons.image, size: 100, color: Colors.grey),
               ),
               const SizedBox(height: 16),
               Text(
                 "Product Name: ${productData['productName'] ?? 'Unnamed Product'}",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style:
+                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
                 "Safety Label: ${productData['safetyLabel'] ?? 'Unknown'}",
                 style: TextStyle(
                   fontSize: 16,
-                  color: productData['safetyLabel'] == 'Safe' ? Colors.green : Colors.red,
+                  color: productData['safetyLabel'] == 'Safe'
+                      ? Colors.green
+                      : Colors.red,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
                 "Ingredients:",
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              ...List<Widget>.from(
-                List<Map<String, dynamic>>.from(productData['ingredients'] ?? []).map(
-                      (ingredient) => Text("- ${ingredient['name']} (${ingredient['quantityPresentAsPerImageInferred']})"),
-                ),
-              ),
+              ...ingredientsWidgets,
               const SizedBox(height: 16),
               if ((productData['harmfulIngredients'] ?? []).isNotEmpty)
                 Column(
@@ -556,13 +702,10 @@ class ProductDetailPage extends StatelessWidget {
                   children: [
                     Text(
                       "Harmful Ingredients:",
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
-                    ...List<Widget>.from(
-                      List<Map<String, dynamic>>.from(productData['harmfulIngredients'] ?? []).map(
-                            (harmful) => Text("- ${harmful['name']} (${harmful['quantityPresentAsPerImageInferred']})"),
-                      ),
-                    ),
+                    ...harmfulIngredientsWidgets,
                   ],
                 ),
             ],
@@ -574,10 +717,13 @@ class ProductDetailPage extends StatelessWidget {
 }
 
 class ProfileTab extends StatelessWidget {
-  const ProfileTab({Key? key}) : super(key: key);
+  final TwitterService twitterService; // Receive TwitterService instance
+
+  const ProfileTab({Key? key, required this.twitterService}) : super(key: key);
 
   Future<String?> _getUserRole(String uid) async {
-    DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    DocumentSnapshot userDoc =
+    await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (userDoc.exists) {
       return userDoc['role'] as String?;
     }
@@ -604,7 +750,8 @@ class ProfileTab extends StatelessWidget {
             children: [
               Text(
                 user.displayName ?? 'No Name',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style:
+                const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(user.email ?? 'No Email'),
@@ -612,6 +759,7 @@ class ProfileTab extends StatelessWidget {
               ElevatedButton(
                 onPressed: () async {
                   await FirebaseAuth.instance.signOut();
+                  await twitterService.disconnect(); // Disconnect Twitter account on sign out
                 },
                 child: const Text("Log Out"),
               ),
@@ -629,10 +777,25 @@ class ProfileTab extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () {
                     // Navigate to Harmful Ingredients Management Screen
-                    debugPrint("Navigate to Harmful Ingredients Management Screen");
+                    debugPrint(
+                        "Navigate to Harmful Ingredients Management Screen");
                   },
                   child: const Text("Manage Harmful Ingredients"),
                 ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  await twitterService.disconnect();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Twitter account disconnected.')),
+                  );
+                },
+                child: const Text("Disconnect Twitter Account"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                ),
+              ),
             ],
           ),
         );
