@@ -1,4 +1,4 @@
-**Food Pharmer**
+# Food Pharmer
 
 **Table of Contents**
 
@@ -21,11 +21,11 @@
 
 8. License
 
-**Overview**
+## **Overview**
 
 Food Pharmer is a Flutter-based mobile application designed to empower consumers with information about the ingredients in their food products. By leveraging image recognition and text extraction technologies, the app analyzes product labels to identify and highlight any potentially harmful ingredients. Additionally, Food Pharmer integrates with Twitter to automatically post warnings when unsafe ingredients are detected, promoting food safety awareness.
 
-**Features**
+## **Features**
 
 - **Image Capture & Upload:** Easily capture or select images of food product labels from your device.
 - **Ingredient Analysis:** Utilizes Google Vision API to extract and analyze ingredient lists from images.
@@ -36,7 +36,7 @@ Food Pharmer is a Flutter-based mobile application designed to empower consumers
 - **Profile Management:** Users can manage their accounts and Twitter connections seamlessly.
 - **Dashboard:** View a history of analyzed products and their safety status.
 
-**Technologies Used**
+## **Technologies Used**
 
 - **Flutter:** Front-end framework for building cross-platform mobile applications.
 - **Dart:** Programming language used with Flutter.
@@ -47,11 +47,11 @@ Food Pharmer is a Flutter-based mobile application designed to empower consumers
 - **Twitter API v2:** Enables integration with Twitter for automated tweeting.
 - **Cloud Firestore:** Database for storing and retrieving analysis results and ingredient data.
 
-**Getting Started**
+## **Getting Started**
 
 Follow these instructions to set up and run the Food Pharmer app on your local machine.
 
-**Prerequisites**
+## **Prerequisites**
 
 - **Flutter SDK:** Ensure you have Flutter installed. [Installation Guide]()
 - **Android Studio or VS Code:** Recommended IDEs for Flutter development.
@@ -59,7 +59,7 @@ Follow these instructions to set up and run the Food Pharmer app on your local m
 - **Google Cloud Account:** Required for accessing the Google Vision API.
 - **Twitter Developer Account:** Necessary for obtaining Twitter API credentials.
 
-**Installation**
+## **Installation**
 
 1. **Clone the Repository:**
 
@@ -125,7 +125,7 @@ Follow these instructions to set up and run the Food Pharmer app on your local m
        Copy code
        flutter run
 
-**Usage**
+## **Usage**
 
 1. **Sign In:**
 
@@ -151,7 +151,7 @@ Follow these instructions to set up and run the Food Pharmer app on your local m
 
    - In the Profile tab, manage your account settings and disconnect your Twitter account if desired.
 
-**Contributing**
+## **Contributing**
 
 We welcome contributions to enhance Food Pharmer! Please follow the guidelines below to contribute.
 
@@ -194,13 +194,13 @@ We welcome contributions to enhance Food Pharmer! Please follow the guidelines b
 
    - Navigate to the original repository and create a pull request from your forked repository.
 
-**Guidelines:**
+## **Guidelines:**
 
 - **Follow Code Standards:** Ensure your code adheres to Flutter and Dart best practices.
 - **Write Clear Commit Messages:** Describe your changes succinctly.
 - **Test Thoroughly:** Ensure that your contributions do not break existing functionalities.
 
-**Credits**
+## **Credits**
 
 Food Pharmer is a collaborative project made possible by the dedicated efforts of the team members:
 
