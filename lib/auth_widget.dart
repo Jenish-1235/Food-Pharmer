@@ -242,32 +242,6 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                           child: const Text('Forgot Password'),
                                         ),
                                       ),
-                                      const SizedBox(height: 24),
-                                      Center(
-                                        child: Text(
-                                          'Or sign in with',
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Center(
-                                        child: ElevatedButton.icon(
-                                          onPressed: _signInWithGoogle,
-                                          icon: const Icon(FontAwesomeIcons.google),
-                                          label: const Text('Continue with Google'),
-                                          style: ElevatedButton.styleFrom(
-                                            foregroundColor: Colors.black, backgroundColor: Colors.white,
-                                            side: const BorderSide(color: Color(0xFFE0E3E7), width: 2),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(40),
-                                            ),
-                                            minimumSize: const Size(230, 44),
-                                          ),
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -318,32 +292,6 @@ class _AuthWidgetState extends State<AuthWidget> with TickerProviderStateMixin {
                                             minimumSize: const Size(230, 52),
                                           ),
                                           child: const Text('Create Account'),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Center(
-                                        child: Text(
-                                          'Or sign up with',
-                                          style: theme.textTheme.bodyMedium?.copyWith(
-                                            color: Colors.grey[700],
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Center(
-                                        child: ElevatedButton.icon(
-                                          onPressed: _signInWithGoogle,
-                                          icon: const FaIcon(FontAwesomeIcons.google),
-                                          label: const Text('Continue with Google'),
-                                          style: ElevatedButton.styleFrom(
-                                            foregroundColor: Colors.black, backgroundColor: Colors.white,
-                                            side: const BorderSide(color: Color(0xFFE0E3E7), width: 2),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(40),
-                                            ),
-                                            minimumSize: const Size(230, 44),
-                                          ),
                                         ),
                                       ),
                                     ],
